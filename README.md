@@ -1,8 +1,8 @@
 # @knot-ai/cli
 
-Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer for **Knot**.
+Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer for **Knot** — the Shared Brain for all your AIs.
 
-The Knot CLI connects your local developer environment (Cursor, Windsurf, Claude Code, Antigravity) to Knot's cross-tool continuity bus. It eliminates cold starts and manual prompt copy-pasting by synchronizing ratified project decisions, tech stack invariants, and lifecycle handoffs directly into your editor's prompt window.
+The Knot CLI connects your local developer environment (Cursor, Windsurf, Claude Code, Antigravity) to your user's shared brain in Knot. It eliminates cold starts and manual prompt copy-pasting by synchronizing ratified project decisions, tech stack invariants, and lifecycle handoffs directly into your editor's prompt window.
 
 ---
 
