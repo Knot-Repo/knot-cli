@@ -1,4 +1,4 @@
-# @knot/cli
+# @knot-ai/cli
 
 Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer for **Knot**.
 
@@ -10,12 +10,12 @@ The Knot CLI connects your local developer environment (Cursor, Windsurf, Claude
 
 Install globally via npm:
 ```bash
-npm install -g @knot/cli
+npm install -g @knot-ai/cli
 ```
 
 Or run directly with `npx`:
 ```bash
-npx @knot/cli --help
+npx @knot-ai/cli --help
 ```
 
 Or install directly from GitHub (releases / repository):

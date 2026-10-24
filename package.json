@@ -1,5 +1,5 @@
 {
-  "name": "@knot/cli",
+  "name": "@knot-ai/cli",
   "version": "0.1.0",
   "type": "module",
   "description": "Knot CLI: Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer",
