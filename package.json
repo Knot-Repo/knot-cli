@@ -1,0 +1,49 @@
+{
+  "name": "@knot/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Knot CLI: Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer",
+  "main": "dist/index.js",
+  "bin": {
+    "knot": "bin/knot.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "knot",
+    "mcp",
+    "ai-context",
+    "cursor",
+    "windsurf",
+    "claude-code",
+    "antigravity",
+    "agentic-handoff",
+    "turn-0"
+  ],
+  "author": "Knot Team (https://connectknot.com)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Knot-Repo/knot-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Knot-Repo/knot-cli/issues"
+  },
+  "homepage": "https://connectknot.com",
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.2"
+  }
+}
