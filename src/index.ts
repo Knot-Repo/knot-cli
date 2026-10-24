@@ -101,6 +101,23 @@ export function runDoctorChecks(rootDir: string) {
   };
 }
 
+export function writeOrUpdateEnvFile(filePath: string, entries: Record<string, string>): boolean {
+  let content = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+  for (const [key, val] of Object.entries(entries)) {
+    const regex = new RegExp(`^${key}=.*$`, "m");
+    const line = `${key}="${val}"`;
+    if (regex.test(content)) {
+      content = content.replace(regex, line);
+    } else {
+      content = content.trim().length > 0 ? `${content.trim()}\n${line}\n` : `${line}\n`;
+    }
+  }
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, content, "utf8");
+  return true;
+}
+
 export function createProgram(): Command {
   const program = new Command();
 
@@ -545,6 +562,199 @@ export function createProgram(): Command {
         }
       } catch {
         // Non-blocking background hook
+      }
+    });
+
+  const appCmd = program
+    .command("app")
+    .description("Manage developer applications, OAuth clients and API keys for Knot SDK integration");
+
+  appCmd
+    .command("create")
+    .description("Provision a new developer app and issue API credentials")
+    .requiredOption("--name <name>", "Application name (e.g. 'Support AI Assistant')")
+    .option("--redirect <url>", "OAuth callback redirect URI", "http://localhost:3000/api/auth/callback/knot")
+    .option("--env <environment>", "Target environment ('development' or 'sandbox')", "development")
+    .option("--write-env [file]", "Write credentials directly into environment file", ".env.local")
+    .option("--endpoint <url>", "Knot MCP endpoint", process.env.KNOT_API_URL || "https://production.connectknot.com/api/mcp")
+    .option("--token <token>", "Explicit Bearer token (overrides stored credentials)")
+    .action(async (options) => {
+      const rootDir = process.cwd();
+      const token = resolveToken(options.token, rootDir);
+      if (!token) {
+        console.error("\n✖ Not authenticated. Run 'knot login' first or pass --token <token>");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const res = await fetch(options.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: Date.now(),
+            method: "tools/call",
+            params: {
+              name: "knot_provision_developer_app",
+              arguments: {
+                name: options.name,
+                redirect_uris: [options.redirect],
+                environment: options.env,
+              },
+            },
+          }),
+        });
+        const data = (await res.json()) as any;
+        if (data.error) {
+          throw new Error(data.error.message || "Failed to provision app");
+        }
+        const app = data.result?.structuredContent;
+        if (!app || app.status !== "provisioned") {
+          throw new Error("Invalid response from Knot MCP");
+        }
+
+        console.log(`\n✔ Developer application "${app.name}" provisioned successfully!`);
+        console.log(`  Product ID:   ${app.product_id}`);
+        console.log(`  Client ID:    ${app.client_id}`);
+        console.log(`  Environment:  ${app.environment}`);
+        console.log(`  Redirect URI: ${app.redirect_uris[0]}`);
+        console.log(`  Secret:       ${app.secret}`);
+
+        if (options.writeEnv) {
+          const envFile = typeof options.writeEnv === "string" ? options.writeEnv : ".env.local";
+          const envPath = path.resolve(rootDir, envFile);
+          writeOrUpdateEnvFile(envPath, {
+            NEXT_PUBLIC_KNOT_CLIENT_ID: app.client_id,
+            KNOT_SECRET: app.secret,
+            NEXT_PUBLIC_KNOT_REDIRECT_URI: app.redirect_uris[0],
+          });
+          console.log(`\n📄 Written to ${envFile}:`);
+          console.log(`  NEXT_PUBLIC_KNOT_CLIENT_ID="${app.client_id}"`);
+          console.log(`  KNOT_SECRET="${app.secret.slice(0, 16)}..."`);
+          console.log(`  NEXT_PUBLIC_KNOT_REDIRECT_URI="${app.redirect_uris[0]}"`);
+        }
+        console.log("\n🚀 One-shot integration ready! You can now import <ContinueWithKnot /> in your app.");
+      } catch (err: any) {
+        console.error(`\n✖ Provisioning failed: ${err.message || String(err)}`);
+        process.exitCode = 1;
+      }
+    });
+
+  appCmd
+    .command("list")
+    .description("List registered developer applications and active API key prefixes")
+    .option("--endpoint <url>", "Knot MCP endpoint", process.env.KNOT_API_URL || "https://production.connectknot.com/api/mcp")
+    .option("--token <token>", "Explicit Bearer token")
+    .action(async (options) => {
+      const rootDir = process.cwd();
+      const token = resolveToken(options.token, rootDir);
+      if (!token) {
+        console.error("\n✖ Not authenticated. Run 'knot login' first or pass --token <token>");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const res = await fetch(options.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: Date.now(),
+            method: "tools/call",
+            params: {
+              name: "knot_list_developer_apps",
+              arguments: {},
+            },
+          }),
+        });
+        const data = (await res.json()) as any;
+        if (data.error) {
+          throw new Error(data.error.message || "Failed to list apps");
+        }
+        const result = data.result?.structuredContent;
+        const apps = result?.apps || [];
+        console.log(`\n📦 Registered Developer Applications (${apps.length}):`);
+        if (apps.length === 0) {
+          console.log("  No applications found. Run 'knot app create --name <name>' to create one.");
+          return;
+        }
+        for (const app of apps) {
+          console.log(`\n  • ${app.name} (${app.environment})`);
+          console.log(`    Product ID:   ${app.id}`);
+          console.log(`    Client ID:    ${app.client_id}`);
+          console.log(`    Callbacks:    ${app.redirect_uris.join(", ")}`);
+          console.log(`    Active Keys:  ${app.active_keys.length > 0 ? app.active_keys.map((k: any) => k.prefix + "...").join(", ") : "None"}`);
+        }
+      } catch (err: any) {
+        console.error(`\n✖ Listing failed: ${err.message || String(err)}`);
+        process.exitCode = 1;
+      }
+    });
+
+  appCmd
+    .command("rotate")
+    .description("Rotate API key for an application with zero-downtime dual-key support")
+    .requiredOption("--product-id <id>", "Application / Product ID")
+    .option("--revoke-previous", "Immediately revoke previous active keys instead of keeping grace period", false)
+    .option("--write-env [file]", "Update KNOT_SECRET directly in environment file", ".env.local")
+    .option("--endpoint <url>", "Knot MCP endpoint", process.env.KNOT_API_URL || "https://production.connectknot.com/api/mcp")
+    .option("--token <token>", "Explicit Bearer token")
+    .action(async (options) => {
+      const rootDir = process.cwd();
+      const token = resolveToken(options.token, rootDir);
+      if (!token) {
+        console.error("\n✖ Not authenticated. Run 'knot login' first or pass --token <token>");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const res = await fetch(options.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: Date.now(),
+            method: "tools/call",
+            params: {
+              name: "knot_rotate_developer_credential",
+              arguments: {
+                product_id: options.productId,
+                revoke_previous: Boolean(options.revokePrevious),
+              },
+            },
+          }),
+        });
+        const data = (await res.json()) as any;
+        if (data.error) {
+          throw new Error(data.error.message || "Failed to rotate credential");
+        }
+        const rotated = data.result?.structuredContent;
+        console.log(`\n✔ API key rotated successfully!`);
+        console.log(`  Product ID:            ${rotated.product_id}`);
+        console.log(`  Client ID:             ${rotated.client_id}`);
+        console.log(`  New Secret:            ${rotated.secret}`);
+        console.log(`  Previous Keys Revoked: ${rotated.previous_keys_revoked ? "Yes" : "No (Grace period active)"}`);
+
+        if (options.writeEnv) {
+          const envFile = typeof options.writeEnv === "string" ? options.writeEnv : ".env.local";
+          const envPath = path.resolve(rootDir, envFile);
+          writeOrUpdateEnvFile(envPath, {
+            KNOT_SECRET: rotated.secret,
+          });
+          console.log(`\n📄 Updated KNOT_SECRET in ${envFile}`);
+        }
+      } catch (err: any) {
+        console.error(`\n✖ Key rotation failed: ${err.message || String(err)}`);
+        process.exitCode = 1;
       }
     });
 

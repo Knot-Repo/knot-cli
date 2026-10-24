@@ -7,7 +7,7 @@ import { scrubString, scrubObject } from "./lib/scrubber.js";
 import { injectRules, KNOT_DELIMITER_START, KNOT_DELIMITER_END } from "./lib/rule-injector.js";
 import { configureEditorMcp } from "./lib/editor-config.js";
 import { inspectRepository } from "./lib/repo-scanner.js";
-import { runDoctorChecks } from "./index.js";
+import { runDoctorChecks, writeOrUpdateEnvFile, createProgram } from "./index.js";
 
 test("Knot CLI Unit & Security Test Suite", async (t) => {
   await t.test("Scrubber: redacts sensitive keys and API tokens", () => {
@@ -248,6 +248,52 @@ test("Knot CLI Unit & Security Test Suite", async (t) => {
 
     clearCredentials();
     assert.equal(loadCredentials(), null);
+  });
+
+  await t.test("writeOrUpdateEnvFile creates and updates environment variables accurately", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "knot-env-test-"));
+    const envFile = path.join(tempDir, ".env.local");
+
+    // 1. Initial write
+    writeOrUpdateEnvFile(envFile, {
+      NEXT_PUBLIC_KNOT_CLIENT_ID: "partner-development:1234",
+      KNOT_SECRET: "knot_development_secret1",
+    });
+
+    let content = fs.readFileSync(envFile, "utf8");
+    assert.ok(content.includes('NEXT_PUBLIC_KNOT_CLIENT_ID="partner-development:1234"'));
+    assert.ok(content.includes('KNOT_SECRET="knot_development_secret1"'));
+
+    // 2. Key rotation / update
+    writeOrUpdateEnvFile(envFile, {
+      KNOT_SECRET: "knot_development_secret2",
+    });
+
+    content = fs.readFileSync(envFile, "utf8");
+    assert.ok(content.includes('NEXT_PUBLIC_KNOT_CLIENT_ID="partner-development:1234"'));
+    assert.ok(content.includes('KNOT_SECRET="knot_development_secret2"'));
+    assert.ok(!content.includes("knot_development_secret1"));
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  await t.test("createProgram registers knot app commands with correct options", () => {
+    const program = createProgram();
+    const appCmd = program.commands.find((c) => c.name() === "app");
+    assert.ok(appCmd, "knot app command must exist");
+
+    const createCmd = appCmd.commands.find((c) => c.name() === "create");
+    assert.ok(createCmd, "knot app create command must exist");
+    assert.ok(createCmd.options.some((o) => o.attributeName() === "name"));
+    assert.ok(createCmd.options.some((o) => o.attributeName() === "writeEnv"));
+
+    const listCmd = appCmd.commands.find((c) => c.name() === "list");
+    assert.ok(listCmd, "knot app list command must exist");
+
+    const rotateCmd = appCmd.commands.find((c) => c.name() === "rotate");
+    assert.ok(rotateCmd, "knot app rotate command must exist");
+    assert.ok(rotateCmd.options.some((o) => o.attributeName() === "productId"));
+    assert.ok(rotateCmd.options.some((o) => o.attributeName() === "revokePrevious"));
   });
 });
 
