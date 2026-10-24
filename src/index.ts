@@ -107,7 +107,7 @@ export function createProgram(): Command {
   program
     .name("knot")
     .description("Knot CLI: Local Context Seeder, Environment Bridge & Turn-0 Invariant Synchronizer")
-    .version("0.1.0");
+    .version("0.1.1");
 
   program
     .command("login")
