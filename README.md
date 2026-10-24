@@ -24,7 +24,29 @@ Or install directly from GitHub (releases / repository):
 npm install -g github:Knot-Repo/knot-cli
 
 # Direct from GitHub Release tarball
-npm install -g https://github.com/Knot-Repo/knot-cli/releases/download/v0.1.0/knot-cli-0.1.0.tgz
+npm install -g https://github.com/Knot-Repo/knot-cli/releases/download/v0.1.1/knot-ai-cli-0.1.1.tgz
+```
+
+---
+
+## ⚡ One-Shot AI Prompt (Cursor, Windsurf, Claude Code)
+
+Paste this prompt into your AI coding tool to configure your project for Knot Turn-0 continuity:
+
+```markdown
+Configure this repository to use Knot for Turn-0 context continuity:
+
+1. Install the CLI:
+   Run `npm install -g @knot-ai/cli`
+
+2. Initialize Knot:
+   Run `knot init` to configure `.cursor/mcp.json` and install git post-commit lifecycle hooks.
+
+3. Verify Environment:
+   Run `knot doctor` to ensure `.gitignore` guards are active and MCP endpoints are healthy.
+
+4. Turn-0 Invariant Injection:
+   Run `knot sync` to pull active project decisions into `.cursorrules` / `.windsurfrules`.
 ```
 
 ---
